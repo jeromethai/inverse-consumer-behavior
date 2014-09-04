@@ -6,6 +6,7 @@ Created on Sep 3, 2014
 
 import numpy as np
 from cvxopt import matrix, spdiag, solvers
+import rank_nullspace as rn
 
 
 def compute_xmax(xs):
@@ -95,7 +96,7 @@ def linear_objective(xs, smooth=0.0):
     n, N = len(xs[0]), len(xs)
     c = matrix(0., ((n*(n+1))/2+n, 1))
     for i in range(n):
-        for x in xs: c[(n*(n+1))/2+i] -= x[i] + smooth
+        for x in xs: c[(n*(n+1))/2+i] += (-x[i] - smooth)
         for j in range(i,n):
          if j == i:
              for x in xs: c[i*n+j-(i*(i+1))/2] -= x[i]**2
@@ -119,6 +120,9 @@ def x_solver(Q, r, p, H, z, soft):
     P = soft*H.T*H - 2.*Q
     q = p - r - soft*H.T*z
     G = matrix([Q, -spdiag([0.]*n)])
+    M = matrix([P,G])
+    print M.size
+    print rn.rank(M)
     h = matrix([p-r, matrix(0., (n,1))])
     return solvers.qp(P,q,G,h)['x']
 
@@ -160,9 +164,28 @@ def inv_solver(xs, ps, xmax, smooth=0.0):
     
 
 
-def mis_solver(zs, Hs, ps, smooth, soft, xs0=None, max_iter=3):
-    if xs0 is None: xs0 = est.impute_values(zs, Hs)
-    pass
+def mis_solver(zs, Hs, ps, smooth, soft, max_iter=3):
+    """Solves the inverse optimization problem with missing values
+    
+    Parameters
+    ----------
+    zs: list of observed demand vectors
+    Hs: list of observation matrices
+    ps: list of price vectors
+    smooth: regularization parameter on r
+    soft: weight on the observation
+    xs0: list of initial (full) demand vectors
+    max_iter: number of iterations
+    """
+    n = Hs[0].size[1]
+    Q, r = -spdiag([10.]*n), matrix(10., (n,1))
+    for k in range(max_iter):
+        print 'Run x_solver'
+        xs = [x_solver(Q, r, p, H, z, soft) for H,p,z in zip(Hs,ps,zs)]
+        print 'Run inv_solver'
+        Q, r = inv_solver(xs, ps, compute_xmax(xs), smooth)
+        print rn.rank(Q)
+    return Q, r
 
 
 if __name__ == '__main__':
