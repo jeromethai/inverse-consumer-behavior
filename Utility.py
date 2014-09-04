@@ -47,9 +47,9 @@ class Utility:
         
     def sample_data(self, N, pmin=8., pmax=12.):
         """Sample N demands from N prices uniformly sampled in |pmin, pmax|"""
-        ps = [ra.uniform(pmin, pmax, self.n) for k in range(N)]
-        print ps
-        
+        ps = [matrix(ra.uniform(pmin, pmax, (self.n, 1))) for k in range(N)]
+        xs = [self.compute_demand(p) for p in ps]
+        return zip(xs,ps)
         
 
 def sqrt_utility(A, b, x):
@@ -78,23 +78,22 @@ def sample_utility(n, model, alpha, bmax):
     
     A, b = matrix(0.0, (n,n)), matrix(ra.uniform(0,bmax,(n,1)))
     
-    if model == 'model 1': A = matrix(ra.uniform(0,0.5,(n,n)))
+    if model == 1: A = matrix(ra.uniform(0,0.5,(n,n)))
     
-    if model == 'model 2':
+    if model == 2:
         for i in range(n):
             for j in range(i+1,n):
                 A[i,j] = .7**abs(j-i); A[j,i] = A[i,j]
 
-    if model == 'model 3':
+    if model == 3:
         for i in range(n):
             for j in range(i+1,n):
                 if abs(j-i)<4: A[i,j] = .8*.5**abs(j-i); A[j,i] = A[i,j]
                 
-    if model == 'model 4': A = 0.5*matrix(ra.binomial(1,0.1,(n,n)))
+    if model == 4: A = 0.5*matrix(ra.binomial(1,0.1,(n,n)))
                 
     for i in range(n): A[i,i] = 1.0
                 
-    print A
     return Utility((alpha*A,b), 'sqrt')
 
 

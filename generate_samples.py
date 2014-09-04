@@ -9,32 +9,25 @@ from cvxopt import matrix
 import numpy.random as ra
 
 
-def test1(n, alpha, bmax, model):
-    #Q = matrix([[-1., 0.],[0., -1.]])
-    #r = matrix([1., 1.])
-    #u1 = U.Utility((Q,r), 'quad')
-    #print u1.type, u1.n, u1.utility(matrix([1., 1.]))
-    u2 = U.sample_utility(n, model, alpha, bmax)
-    #f, Df, H = u2.utility(matrix([1.]*n))
-    #print f
-    #print Df
-    #print H
-    #print u1.compute_demand(matrix([.5, .5]))
-    x = u2.compute_demand(matrix(ra.uniform(8.,12.,(n,1))))
-    print x
-    print sum(x)
-    #print u2.sample_data(10)
+def sample_utility_data(N, model, n=5, bmax=1):
+    """Sample a utility function
+    then sample N data points (x^j,p^j)
+    with 5 products (n=5)
+    """
+    alpha = [30,25,35,55]
+    u = U.sample_utility(n, model, alpha[model-1], bmax)
+    return u, u.sample_data(N)
 
 
-def test2():
-    pass
+def test(N, model):
+    u, data = sample_utility_data(N, model)
+    for d in data:
+        print sum(d[0])
+        print matrix([[d[0]],[d[1]]])
 
 
 def main():
-    #test1(5, 30, 1, 'model 1')
-    #test1(5, 25, 1, 'model 2')
-    #test1(5, 35, 1, 'model 3')
-    test1(5, 55, 1, 'model 4')
+    test(5, 3)
 
 
 if __name__ == '__main__':
