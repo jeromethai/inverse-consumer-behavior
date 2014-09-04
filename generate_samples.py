@@ -14,7 +14,7 @@ def sample_utility_data(N, model, n=5, bmax=1):
     then sample N data points (x^j,p^j)
     with 5 products (n=5)
     """
-    alpha = [30,25,35,55]
+    alpha = [30.,25.,35.,55.]
     u = U.sample_utility(n, model, alpha[model-1], bmax)
     return u, u.sample_data(N)
 

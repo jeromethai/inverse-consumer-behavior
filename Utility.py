@@ -54,12 +54,12 @@ class Utility:
 
 def sqrt_utility(A, b, x):
     """Square root utility function: U(x) = 1'sqrt(Ax+b)"""
-    tmp = np.sqrt(A*x + b)
-    f = sum(tmp)[0]
-    tmp = matrix([.5/x[0] for x in tmp])
-    Df = tmp.T*A
-    tmp = spdiag([-2.*x**3 for x in tmp])
-    return f, Df, A.T*tmp*A
+    tmp1 = np.sqrt(A*x + b)
+    f = sum(tmp1)[0]
+    tmp2 = matrix([.5/a[0] for a in tmp1])
+    Df = tmp2.T*A
+    tmp3 = spdiag([-2.*a**3 for a in tmp2])
+    return f, Df, A.T*tmp3*A
     
     
 def quad_utility(Q, r, x):
@@ -93,7 +93,7 @@ def sample_utility(n, model, alpha, bmax):
     if model == 4: A = 0.5*matrix(ra.binomial(1,0.1,(n,n)))
                 
     for i in range(n): A[i,i] = 1.0
-                
+    
     return Utility((alpha*A,b), 'sqrt')
 
 
