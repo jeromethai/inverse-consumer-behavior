@@ -7,6 +7,8 @@ Created on Sep 3, 2014
 import numpy as np
 from cvxopt import matrix, spdiag, solvers
 import rank_nullspace as rn
+import Utility as U
+from numpy import linalg as la
 
 
 def compute_xmax(xs):
@@ -19,49 +21,25 @@ def compute_xmax(xs):
     return xmax
 
 
-def remove_values(xs, K):
-    """Remove K entries uniformly in each demand vector x"""
-    n, zs, Hs = len(xs[0]), [], []
+def remove_values(data, K):
+    """Remove entry K in each demand vector x
+    returns the observation matrix
+    
+    Parameters
+    ----------
+    data: data points [(x^j, p^j)], x^j demand vector, p^j the price vector
+    """
+    xs = [d[0] for d in data] # list of demand vectors in equilibrium
+    ps = [d[1] for d in data] # list of price vectors
+    n, zs = len(xs[0]), []
+    ind = range(K)+range(K+1,n)
+    H, k = matrix(0.0, (n-1,n)), 0
+    for i in ind: H[k, int(i)] = 1.0; k += 1
     for x in xs:
-        ind = np.sort(np.random.permutation(n)[:n-K])
-        z, H = matrix(0.0, (n-K,1)), matrix(0.0, (n-K,n))
-        k = 0
-        for i in ind:
-            z[k] = x[int(i)]
-            H[k, int(i)] = 1.0
-            k += 1
+        z, k = matrix(0.0, (n-1,1)), 0
+        for i in ind: z[k] = x[int(i)]; k += 1
         zs.append(z)
-        Hs.append(H)
-    return zs, Hs
-
-
-def impute_values(zs, Hs):
-    """Impute the missing demands for a product
-    with the mean of observed values
-    from the list on observed demands zs
-    and the list of observation matrices Hs"""
-    n = Hs[0].size[1]
-    xmean, counts = [0.]*n, [0]*n
-    for z, H in zip(zs, Hs):
-        k = 0
-        for i in range(n):
-            if sum(H[:,i]) > 0:
-                xmean[i] += z[k]
-                counts[i] += 1
-                k += 1
-    for i in range(n): xmean[i] /= counts[i]
-    xs = []
-    for z, H in zip(zs, Hs):
-        x = matrix(0.0, (n,1))
-        k = 0
-        for i in range(n):
-            if sum(H[:,i]) > 0:
-                x[i] = z[k]
-                k += 1
-            else:
-                x[i] = xmean[i]
-        xs.append(x)
-    return xs 
+    return zip(zs, ps), H
 
 
 def conic_constraint(n):
@@ -92,7 +70,13 @@ def linear_constraint(x):
 
 def linear_objective(xs, smooth=0.0):
     """Construct linear objective for the SDP
-    f(Q,r) = sum_j{-(x^j)'*Q*x^j - r'*x^j} + smooth*sum_i{r_i}"""
+    f(Q,r) = sum_j{-(x^j)'*Q*x^j - r'*x^j} + smooth*sum_i{r_i}
+    
+    Parameters
+    ----------
+    xs: list of demand vectors
+    smooth: regularization parameter on r
+    """
     n, N = len(xs[0]), len(xs)
     c = matrix(0., ((n*(n+1))/2+n, 1))
     for i in range(n):
@@ -120,9 +104,6 @@ def x_solver(Q, r, p, H, z, soft):
     P = soft*H.T*H - 2.*Q
     q = p - r - soft*H.T*z
     G = matrix([Q, -spdiag([0.]*n)])
-    M = matrix([P,G])
-    print M.size
-    print rn.rank(M)
     h = matrix([p-r, matrix(0., (n,1))])
     return solvers.qp(P,q,G,h)['x']
 
@@ -164,29 +145,53 @@ def inv_solver(xs, ps, xmax, smooth=0.0):
     
 
 
-def mis_solver(zs, Hs, ps, smooth, soft, max_iter=3):
+def mis_solver(zs, H, ps, smooth, soft=1e6, max_iter=3):
     """Solves the inverse optimization problem with missing values
     
     Parameters
     ----------
     zs: list of observed demand vectors
-    Hs: list of observation matrices
+    H: observation matrix
     ps: list of price vectors
     smooth: regularization parameter on r
     soft: weight on the observation
-    xs0: list of initial (full) demand vectors
     max_iter: number of iterations
     """
-    n = Hs[0].size[1]
+    n = H.size[1]
     Q, r = -spdiag([10.]*n), matrix(10., (n,1))
     for k in range(max_iter):
-        print 'Run x_solver'
-        xs = [x_solver(Q, r, p, H, z, soft) for H,p,z in zip(Hs,ps,zs)]
-        print 'Run inv_solver'
+        xs = [x_solver(Q, r, p, H, z, soft) for p,z in zip(ps,zs)]
         Q, r = inv_solver(xs, ps, compute_xmax(xs), smooth)
-        print rn.rank(Q)
     return Q, r
 
+
+def main_solver(data, H=None, soft=1e6, max_iter=3):
+    """Main solver that imputes the utility function
+    with the best smoothing parameter
+    
+    Parameters
+    ----------
+    data: data points [(x^j, p^j)], x^j demand vector, p^j the price vector
+    H: observation matrix
+    soft: weight on the observation
+    max_iter: maximum number of iterations
+    """
+    zs = [d[0] for d in data] # list of demand vectors in equilibrium
+    ps = [d[1] for d in data] # list of price vectors
+    smooth = [0.0, 0.01, 1.0, 100.0]
+    error = np.inf
+    if H is None: xmax = compute_xmax(zs)
+    for i in range(len(smooth)):
+        if H is None: Q, r = inv_solver(zs, ps, xmax, smooth[i])
+        else: Q, r = mis_solver(zs, H, ps, smooth[i], soft, max_iter)
+        u = U.Utility((Q,r), 'quad')
+        if H is None: z_est = matrix([u.compute_demand(d[1]) for d in data])
+        else: z_est = matrix([H*u.compute_demand(d[1]) for d in data])
+        e = la.norm(matrix(zs)-z_est, 1) 
+        if e < error: error, best_Q, best_r, best_smooth = e, Q, r, smooth[i]
+    return best_Q, best_r, best_smooth
+            
+            
 
 if __name__ == '__main__':
     pass

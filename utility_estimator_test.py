@@ -12,56 +12,25 @@ import generate_samples as sample
 import Utility as U
 
 
-def test1(N, model):
+def test(N, model, K):
+    """Test utility_estimator"""
     u, data = sample.sample_utility_data(N, model)
-    xs = [d[0] for d in data] # list of demand vectors in equilibrium
-    ps = [d[1] for d in data] # list of price vectors
-    xmax = est.compute_xmax(xs)
-    error, Qs, rs, ws = [], [], [], []
-    smooth = [0.0, 0.01, 1.0, 100.0]
-    for k in range(len(smooth)):
-        Q, r = est.inv_solver(xs, ps, xmax, smooth[k])
-        Qs.append(Q)
-        rs.append(r)
-        ws.append(la.eig(Q)[0])
-        u_est, x_est, x_true = U.Utility((Q,r), 'quad'), [], []
-        for d in data:
-            x_true.append(d[0])
-            x_est.append(u_est.compute_demand(d[1]))
-        x_true, x_est = matrix(x_true), matrix(x_est)
-        error.append(la.norm(x_true-x_est, 1)/la.norm(x_true, 1))
-    for Q in Qs: print Q
-    for r in rs: print r
-    for w in ws: print w
-    print error
-
-
-def test2(N, model, K):
-    u, data = sample.sample_utility_data(N, model)
-    xs = [d[0] for d in data] # list of demand vectors in equilibrium
-    ps = [d[1] for d in data] # list of price vectors
-    zs, Hs = est.remove_values(xs, K)
-    #xs_i = est.impute_values(zs, Hs)
-    smooth = [0.0, 0.01, 1.0, 100.0]
-    soft = [10000.0]
-    error = []
-    for i in range(len(soft)):
-        e = []
-        for j in range(len(smooth)):
-            Q, r = est.mis_solver(zs, Hs, ps, smooth[j], soft[i])
-            u_est, x_est, x_true = U.Utility((Q,r), 'quad'), [], []
-            for d in data:
-                x_true.append(d[0])
-                x_est.append(u_est.compute_demand(d[1]))
-            x_true, x_est = matrix(x_true), matrix(x_est)
-            e.append(la.norm(x_true-x_est, 1)/la.norm(x_true, 1))
-        error.append(e)
-    print error
+    data_mis, H = est.remove_values(data, K)
+    Q1, r1, smooth1 = est.main_solver(data)
+    Q2, r2, smooth2 = est.main_solver(data_mis, H)
+    u1 = U.Utility((Q1,r1), 'quad')
+    u2 = U.Utility((Q2,r2), 'quad')
+    x_true = matrix([d[0] for d in data])
+    x1 = matrix([u1.compute_demand(d[1]) for d in data])
+    x2 = matrix([u2.compute_demand(d[1]) for d in data])
+    print smooth1, smooth2
+    print la.norm(x1-x_true, 1)/la.norm(x_true, 1)
+    print la.norm(x2-x_true, 1)/la.norm(x_true, 1)
+    print H
             
 
 def main():
-    #test1(200, 3)
-    test2(200, 2, 1)
+    test(200, 2, 0)
 
 
 if __name__ == '__main__':
