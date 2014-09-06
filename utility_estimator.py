@@ -80,12 +80,12 @@ def linear_objective(xs, smooth=0.0):
     n, N = len(xs[0]), len(xs)
     c = matrix(0., ((n*(n+1))/2+n, 1))
     for i in range(n):
-        for x in xs: c[(n*(n+1))/2+i] += (-x[i] - smooth)
+        for x in xs: c[(n*(n+1))/2+i] += -x[i] - smooth
         for j in range(i,n):
          if j == i:
-             for x in xs: c[i*n+j-(i*(i+1))/2] -= x[i]**2
+             for x in xs: c[i*n+j-(i*(i+1))/2] += -x[i]**2 - smooth
          else:
-             for x in xs: c[i*n+j-(i*(i+1))/2] -= 2*x[i]*x[j]
+             for x in xs: c[i*n+j-(i*(i+1))/2] += -2*x[i]*x[j]
     return c
 
 

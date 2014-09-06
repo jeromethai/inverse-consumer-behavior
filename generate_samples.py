@@ -27,7 +27,7 @@ def test(N, model):
 
 
 def main():
-    test(5, 4)
+    test(5, 2)
 
 
 if __name__ == '__main__':

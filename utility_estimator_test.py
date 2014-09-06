@@ -12,6 +12,9 @@ import utility_estimator as est
 import generate_samples as sample
 import Utility as U
 import matplotlib.pyplot as plt
+import optimal_pricing as op
+import numpy.random as ra
+
 
 
 def display_results(u1, u2, u_true, error1, error2, xmax):
@@ -45,7 +48,7 @@ def display_results(u1, u2, u_true, error1, error2, xmax):
         plt.show()
 
 
-def test(N, model, K):
+def estimator_test(N, model, K, display=False):
     """Test utility_estimator
     
     Parameters:
@@ -66,13 +69,33 @@ def test(N, model, K):
     x2 = matrix([u2.compute_demand(d[1]) for d in data])
     e1 = la.norm(x1-x_true, 1)/la.norm(x_true, 1)
     e2 = la.norm(x2-x_true, 1)/la.norm(x_true, 1)
-    print e1,e2
     xmax = est.compute_xmax(xs)
-    display_results(u1, u2, u, e1, e2, xmax)            
+    if display:
+        print 'errors:', e1,e2
+        print 'smooths:', smooth1,smooth2
+        print u.data[1]
+        print xmax
+        display_results(u1, u2, u, e1, e2, xmax)
+    return u1, u2, u, xmax, e1, e2
+
+
+def pricing_test(N, model, K, i, pmin=8., pmax=12.):
+    u1, u2, u, xmax, e1, e2 = estimator_test(N, model, K)
+    xdes = np.linspace(0.0, xmax[i], num=100)
+    p = matrix(ra.uniform(pmin, pmax, (u.n, 1)))
+    Q1,r1 = u1.data
+    Q2,r2 = u2.data
+    p1 = op.solver(Q1, r1, i, xmax[i]/2, p)
+    d1 = u1.compute_demand(p1)
+    print p
+    print p1
+    print d1[i]
+    print xmax[i]/2
 
 
 def main():
-    test(200, 2, 0)
+    estimator_test(200, 3, 0, True)
+    #pricing_test(200, 2, 0, 2)
 
 
 if __name__ == '__main__':
