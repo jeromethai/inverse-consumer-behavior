@@ -8,6 +8,7 @@ Created on Sep 3, 2014
 import numpy as np
 import numpy.random as ra
 from cvxopt import matrix, spdiag, solvers
+import matplotlib.pylab as plt
 
 
 class Utility:
@@ -43,6 +44,18 @@ class Utility:
                 if z is None: return f, Df
                 return f, Df, -z[0]*H
             return solvers.cp(F, G, h)['x']
+        
+        
+    def visualize_AQ(self):
+        """Visualize the matrix A if the utility function is sqrt
+        Visualize the matrix Q if the utility function is  quad"""
+        M = np.matrix(self.data[0])
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.set_aspect('equal')
+        plt.imshow(M, interpolation='nearest', cmap=plt.cm.YlOrRd)
+        plt.colorbar()
+        plt.show()
         
         
     def sample_data(self, N, pmin=8., pmax=12.):

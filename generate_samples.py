@@ -24,10 +24,11 @@ def test(N, model):
         print sum(d[0])
         print matrix([[d[0]],[d[1]]])
     print u.data[0]
+    u.visualize_AQ()
 
 
 def main():
-    test(5, 1)
+    test(5, 3)
 
 
 if __name__ == '__main__':
