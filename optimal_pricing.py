@@ -39,7 +39,7 @@ def mis_solver(zs, H, ps, smooth, soft=1e6, max_iter=3):
     return Q, r
 """
 
-def solver(Q, r, i, d, p, soft=1e8, max_iter=3):
+def solver(Q, r, i, d, p, soft=1e5, max_iter=5):
     """Pricing for product i that matches desired demand d
     given other prices p and quadratic utility function (Q,r)
     
@@ -53,12 +53,11 @@ def solver(Q, r, i, d, p, soft=1e8, max_iter=3):
     """
     n = len(r)
     H = matrix(0., (1,n)); H[i] = 1.
-    q = p
-    q[i] = 0.
+    q = matrix(p); q[i] = 100.
     print q[i]
     for k in range(max_iter):
         x = x_solver(Q, r, q, H, d, soft)
-        q[i] = max((H*(Q*x+r))[0], 0)
+        q[i] = (H*(Q*x+r))[0]
         print q[i]
     return q
 

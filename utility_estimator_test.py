@@ -17,7 +17,7 @@ import numpy.random as ra
 
 
 
-def display_results(u1, u2, u_true, error1, error2, xmax):
+def display_results(u1, u2, u_true, error1, error2, xmax, model):
     """Display results
     
     Parameters
@@ -28,6 +28,7 @@ def display_results(u1, u2, u_true, error1, error2, xmax):
     error1: relative error in estimated demand from u1
     error2: relative error in estimated demand from u2
     xmax: maximum prices vector
+    model: model to generate sqrt-type utility function
     """
     index = [0,2]
     for i in index:
@@ -43,7 +44,7 @@ def display_results(u1, u2, u_true, error1, error2, xmax):
         plt.plot( xdata, true_vals, 'r', label='true')
         plt.xlabel('Demand in product {}'.format(i+1))
         plt.ylabel('Utility')
-        plt.title('Estimated utility function, err1={:.0f}%, err2={:.0f}%'.format(100*error1, 100*error2))
+        plt.title('Utility estimate, err1={:.0f}%, err2={:.0f}%, model {}'.format(100*error1, 100*error2, model))
         plt.legend(loc=0)
         plt.show()
 
@@ -59,8 +60,8 @@ def estimator_test(N, model, K, display=False):
     """
     u, data = sample.sample_utility_data(N, model)
     data_mis, H = est.remove_values(data, K)
-    Q1, r1, smooth1 = est.main_solver(data)
-    Q2, r2, smooth2 = est.main_solver(data_mis, H)
+    Q1, r1 = est.main_solver(data)
+    Q2, r2 = est.main_solver(data_mis, H)
     u1 = U.Utility((Q1,r1), 'quad')
     u2 = U.Utility((Q2,r2), 'quad')
     xs = [d[0] for d in data]
@@ -72,30 +73,48 @@ def estimator_test(N, model, K, display=False):
     xmax = est.compute_xmax(xs)
     if display:
         print 'errors:', e1,e2
-        print 'smooths:', smooth1,smooth2
-        print u.data[1]
         print xmax
-        display_results(u1, u2, u, e1, e2, xmax)
+        display_results(u1, u2, u, e1, e2, xmax, model)
     return u1, u2, u, xmax, e1, e2
 
 
 def pricing_test(N, model, K, i, pmin=8., pmax=12.):
     u1, u2, u, xmax, e1, e2 = estimator_test(N, model, K)
-    xdes = np.linspace(0.0, xmax[i], num=100)
-    p = matrix(ra.uniform(pmin, pmax, (u.n, 1)))
+    xdes = np.linspace(0.0, 1.2*xmax[i], num=100)
     Q1,r1 = u1.data
     Q2,r2 = u2.data
-    p1 = op.solver(Q1, r1, i, xmax[i]/2, p)
-    d1 = u1.compute_demand(p1)
-    print p
-    print p1
-    print d1[i]
-    print xmax[i]/2
+    d1s, d2s, p1s, p2s = [], [], [], []
+    for x in xdes:
+        p = matrix(ra.uniform(pmin, pmax, (u.n, 1)))
+        p1 = op.solver(Q1, r1, i, x, p) #optimal pricing for u1
+        p2 = op.solver(Q2, r2, i, x, p) #optimal pricing for u1
+        d1 = u.compute_demand(p1) #realized demand
+        d2 = u.compute_demand(p2) #realized demand
+        d1s.append(d1[i])
+        d2s.append(d2[i])
+        p1s.append(p1[i])
+        p2s.append(p2[i])
+    plt.plot( xdes, xdes, '--k')
+    plt.plot( xdes, d1s, 'ro', label='full', markersize=4.0)
+    plt.plot( xdes, d2s, 'co', label='missing', markersize=4.0)
+    plt.xlabel('Target Demand in product {}'.format(i+1))
+    plt.ylabel('Realized Demand in product {}'.format(i+1))
+    plt.title('Demand, err1={:.0f}%, err2={:.0f}%, model {}'.format(100*e1, 100*e2, model))
+    plt.legend(loc=0)
+    plt.show()
+    
+    plt.plot( xdes, p1s, 'ro', label='full', markersize=4.0)
+    plt.plot( xdes, p2s, 'co', label='missing', markersize=4.0)
+    plt.xlabel('Target Demand in product {}'.format(i+1))
+    plt.ylabel('Optimal price in product {}'.format(i+1))
+    plt.title('Pricing, err1={:.0f}%, err2={:.0f}%, model {}'.format(100*e1, 100*e2, model))
+    plt.legend(loc=0)
+    plt.show()
 
 
 def main():
-    estimator_test(200, 3, 0, True)
-    #pricing_test(200, 2, 0, 2)
+    #estimator_test(200, 3, 0, True)
+    pricing_test(200, 3, 0, 2)
 
 
 if __name__ == '__main__':

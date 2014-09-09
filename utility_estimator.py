@@ -28,6 +28,7 @@ def remove_values(data, K):
     Parameters
     ----------
     data: data points [(x^j, p^j)], x^j demand vector, p^j the price vector
+    K: entry to be removed
     """
     xs = [d[0] for d in data] # list of demand vectors in equilibrium
     ps = [d[1] for d in data] # list of price vectors
@@ -68,24 +69,23 @@ def linear_constraint(x):
     return matrix([[A],[spdiag([1.]*n)]])   
 
 
-def linear_objective(xs, smooth=0.0):
+def linear_objective(xs):
     """Construct linear objective for the SDP
-    f(Q,r) = sum_j{-(x^j)'*Q*x^j - r'*x^j} + smooth*sum_i{r_i}
+    f(Q,r) = sum_j{-(x^j)'*Q*x^j - r'*x^j}
     
     Parameters
     ----------
     xs: list of demand vectors
-    smooth: regularization parameter on r
     """
     n, N = len(xs[0]), len(xs)
     c = matrix(0., ((n*(n+1))/2+n, 1))
     for i in range(n):
-        for x in xs: c[(n*(n+1))/2+i] += -x[i] - smooth
+        for x in xs: c[(n*(n+1))/2+i] -= x[i]
         for j in range(i,n):
          if j == i:
-             for x in xs: c[i*n+j-(i*(i+1))/2] += -x[i]**2 - smooth
+             for x in xs: c[i*n+j-(i*(i+1))/2] -= x[i]**2
          else:
-             for x in xs: c[i*n+j-(i*(i+1))/2] += -2*x[i]*x[j]
+             for x in xs: c[i*n+j-(i*(i+1))/2] -= 2*x[i]*x[j]
     return c
 
 
@@ -103,12 +103,12 @@ def x_solver(Q, r, p, H, z, soft):
     n = len(r)
     P = soft*H.T*H - 2.*Q
     q = p - r - soft*H.T*z
-    G = matrix([Q, -spdiag([0.]*n)])
+    G = matrix([Q, -spdiag([1.]*n)])
     h = matrix([p-r, matrix(0., (n,1))])
     return solvers.qp(P,q,G,h)['x']
 
 
-def inv_solver(xs, ps, xmax, smooth=0.0):
+def inv_solver(xs, ps, xmax):
     """Optimization w.r.t. (Q,r)
     
     Parameters
@@ -132,7 +132,7 @@ def inv_solver(xs, ps, xmax, smooth=0.0):
     A = matrix([A, tmp])
     b = matrix([b, matrix(0., (n,1))])
     # linear objective
-    c = linear_objective(xs, smooth)
+    c = linear_objective(xs)
     x = solvers.sdp(c, A, b, G, h)['x']
     Q, r = matrix(0., (n,n)), matrix(0., (n,1))
     for i in range(n):
@@ -145,7 +145,7 @@ def inv_solver(xs, ps, xmax, smooth=0.0):
     
 
 
-def mis_solver(zs, H, ps, smooth, soft=1e6, max_iter=3):
+def mis_solver(zs, H, ps, soft=1e5, max_iter=3):
     """Solves the inverse optimization problem with missing values
     
     Parameters
@@ -153,7 +153,6 @@ def mis_solver(zs, H, ps, smooth, soft=1e6, max_iter=3):
     zs: list of observed demand vectors
     H: observation matrix
     ps: list of price vectors
-    smooth: regularization parameter on r
     soft: weight on the observation
     max_iter: number of iterations
     """
@@ -161,11 +160,11 @@ def mis_solver(zs, H, ps, smooth, soft=1e6, max_iter=3):
     Q, r = -spdiag([10.]*n), matrix(10., (n,1))
     for k in range(max_iter):
         xs = [x_solver(Q, r, p, H, z, soft) for p,z in zip(ps,zs)]
-        Q, r = inv_solver(xs, ps, compute_xmax(xs), smooth)
+        Q, r = inv_solver(xs, ps, compute_xmax(xs))
     return Q, r
 
 
-def main_solver(data, H=None, soft=1e6, max_iter=3):
+def main_solver(data, H=None, soft=1e5, max_iter=3):
     """Main solver that imputes the utility function
     with the best smoothing parameter
     
@@ -178,19 +177,8 @@ def main_solver(data, H=None, soft=1e6, max_iter=3):
     """
     zs = [d[0] for d in data] # list of demand vectors in equilibrium
     ps = [d[1] for d in data] # list of price vectors
-    smooth = [0.0, 0.01, 1.0, 100.0]
-    error = np.inf
-    if H is None: xmax = compute_xmax(zs)
-    for i in range(len(smooth)):
-        if H is None: Q, r = inv_solver(zs, ps, xmax, smooth[i])
-        else: Q, r = mis_solver(zs, H, ps, smooth[i], soft, max_iter)
-        u = U.Utility((Q,r), 'quad')
-        if H is None: z_est = matrix([u.compute_demand(d[1]) for d in data])
-        else: z_est = matrix([H*u.compute_demand(d[1]) for d in data])
-        e = la.norm(matrix(zs)-z_est, 1) 
-        if e < error: error, best_Q, best_r, best_smooth = e, Q, r, smooth[i]
-    return best_Q, best_r, best_smooth
-            
+    if H is None: return inv_solver(zs, ps, compute_xmax(zs))
+    else: return mis_solver(zs, H, ps, soft, max_iter)            
             
 
 if __name__ == '__main__':

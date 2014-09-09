@@ -67,30 +67,24 @@ def quad_utility(Q, r, x):
     return (.5*(x.T*Q*x) + r.T*x)[0]
 
 
-def sample_utility(n, model, alpha, bmax):
+def sample_utility(n, model, alpha, beta, bmax):
     """Sample a sqrt-type utility function following a model
     b_i ~ U[0,bmax]
-    'model 1': A = alpha*(I + 0.5*B) with B_ij ~ U[0,1]
-    'model 2': A_ij = alpha*(0.7^|j-i|)
-    'model 3': A_ij = alpha*1{i=j} + alpha*0.4*1{|i-j|=1} + alpha*0.2*1{|i-j|=2} + alpha*0.1*1{|i-j|=3}
-    'model 4': A = alpha*(I + 0.5*B) with B_ij ~ Bernoulli(0.1)
+    'model 1': A = alpha*(I + B) with B_ij ~ U[0,beta]
+    'model 2': A_ij = alpha*(beta^|j-i|)
+    'model 3': A = alpha*(I + 0.5*B) with B_ij ~ Bernoulli(beta)
     """
-    
     A, b = matrix(0.0, (n,n)), matrix(ra.uniform(0,bmax,(n,1)))
     
-    if model == 1: A = matrix(ra.uniform(0,0.5,(n,n)))
+    if model == 1: A = matrix(ra.uniform(0,beta,(n,n)))
     
     if model == 2:
         for i in range(n):
-            for j in range(i+1,n):
-                A[i,j] = .7**abs(j-i); A[j,i] = A[i,j]
-
-    if model == 3:
-        for i in range(n):
-            for j in range(i+1,n):
-                if abs(j-i)<4: A[i,j] = .8*.5**abs(j-i); A[j,i] = A[i,j]
+            for j in range(n/2):
+                A[i, int(np.mod(i+j+1,n))] = beta**(j+1)
+                A[i, int(np.mod(i-(j+1),n))] = beta**(j+1)
                 
-    if model == 4: A = 0.5*matrix(ra.binomial(1,0.1,(n,n)))
+    if model == 3: A = 0.5*matrix(ra.binomial(1,beta,(n,n)))
                 
     for i in range(n): A[i,i] = 1.0
     
