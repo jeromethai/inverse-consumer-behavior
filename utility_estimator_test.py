@@ -51,6 +51,10 @@ def display_results(u1, u2, u_true, error1, error2, xmax, model):
 
 def estimator_test(N, model, K, display=False):
     """Test utility_estimator
+    1) Generate data (x^j,p^j) for 5 products from a sampled sqrt-type utility function
+    2) remove measured demands from product K
+    3) Estimate quadratic utility function from complete and incomplete data
+    4) Display results
     
     Parameters:
     -----------
@@ -60,16 +64,16 @@ def estimator_test(N, model, K, display=False):
     """
     u, data = sample.sample_utility_data(N, model)
     data_mis, H = est.remove_values(data, K)
-    Q1, r1 = est.main_solver(data)
-    Q2, r2 = est.main_solver(data_mis, H)
-    u1 = U.Utility((Q1,r1), 'quad')
-    u2 = U.Utility((Q2,r2), 'quad')
-    xs = [d[0] for d in data]
+    Q1, r1 = est.main_solver(data) # estimate from full data
+    Q2, r2 = est.main_solver(data_mis, H) # estimate from incomplete data
+    u1 = U.Utility((Q1,r1), 'quad') # create Utility object from (Q1,r1) 
+    u2 = U.Utility((Q2,r2), 'quad') # create Utility object from (Q2,r2)
+    xs = [d[0] for d in data] # complete demand vectors from data
     x_true = matrix(xs)
-    x1 = matrix([u1.compute_demand(d[1]) for d in data])
-    x2 = matrix([u2.compute_demand(d[1]) for d in data])
-    e1 = la.norm(x1-x_true, 1)/la.norm(x_true, 1)
-    e2 = la.norm(x2-x_true, 1)/la.norm(x_true, 1)
+    x1 = matrix([u1.compute_demand(d[1]) for d in data]) # compute demands from prices p^j via u1
+    x2 = matrix([u2.compute_demand(d[1]) for d in data]) # compute demands from prices p^j via u2
+    e1 = la.norm(x1-x_true, 1)/la.norm(x_true, 1) # relative error
+    e2 = la.norm(x2-x_true, 1)/la.norm(x_true, 1) # relative error
     xmax = est.compute_xmax(xs)
     if display:
         print 'errors:', e1,e2
@@ -79,6 +83,18 @@ def estimator_test(N, model, K, display=False):
 
 
 def pricing_test(N, model, K, i, pmin=8., pmax=12.):
+    """1) Do steps 1 to 3 of estimator_test with missing data from product K
+    2) Price product i given randomly generated prices from other products
+    
+    Parameters
+    ----------
+    N: number of data points
+    model: model of the utility function
+    K: index of the missing product
+    i: index of the product to price
+    pmin: other prices generated between pmin and pmax
+    pmax: other prices generated between pmin and pmax
+    """
     u1, u2, u, xmax, e1, e2 = estimator_test(N, model, K)
     xdes = np.linspace(0.0, 1.2*xmax[i], num=100)
     Q1,r1 = u1.data
@@ -95,16 +111,16 @@ def pricing_test(N, model, K, i, pmin=8., pmax=12.):
         p1s.append(p1[i])
         p2s.append(p2[i])
     plt.plot( xdes, xdes, '--k')
-    plt.plot( xdes, d1s, 'ro', label='full', markersize=4.0)
-    plt.plot( xdes, d2s, 'co', label='missing', markersize=4.0)
+    #plt.plot( xdes, d1s, 'co', label='full', markersize=6.0)
+    plt.plot( xdes, d2s, 'ro', label='missing', markersize=6.0)
     plt.xlabel('Target Demand in product {}'.format(i+1))
     plt.ylabel('Realized Demand in product {}'.format(i+1))
     plt.title('Demand, err1={:.0f}%, err2={:.0f}%, model {}'.format(100*e1, 100*e2, model))
     plt.legend(loc=0)
     plt.show()
     
-    plt.plot( xdes, p1s, 'ro', label='full', markersize=4.0)
-    plt.plot( xdes, p2s, 'co', label='missing', markersize=4.0)
+    #plt.plot( xdes, p1s, 'co', label='full', markersize=6.0)
+    plt.plot( xdes, p2s, 'ro', label='missing', markersize=6.0)
     plt.xlabel('Target Demand in product {}'.format(i+1))
     plt.ylabel('Optimal price in product {}'.format(i+1))
     plt.title('Pricing, err1={:.0f}%, err2={:.0f}%, model {}'.format(100*e1, 100*e2, model))

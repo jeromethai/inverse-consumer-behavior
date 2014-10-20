@@ -29,6 +29,11 @@ def remove_values(data, K):
     ----------
     data: data points [(x^j, p^j)], x^j demand vector, p^j the price vector
     K: entry to be removed
+    
+    Returns
+    -------
+    [(z^j, p^j)], z^j incomplete demand vector, p^j full price vector
+    H: observation matrix
     """
     xs = [d[0] for d in data] # list of demand vectors in equilibrium
     ps = [d[1] for d in data] # list of price vectors
